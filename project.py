@@ -24,3 +24,25 @@ def editor_node(state:pipeline_state)->dict:
     )
     response=llm.invoke(prompt)
     return {'edited_text':response.content.strip()}
+
+def scriptwriter_node(state:pipeline_state)->dict:
+    """Stage 2: Format the clean text into an engaging video script style."""
+    prompt=(
+        """You are a charismatic Youtube Content Creator. Take this edited text and transform it into a highly 
+        engaging, punchy, conversational video script hook. Make it sound like a real person speaking passionately. Return only the script content.\n\n"""
+        f"Edited Text: \n {state['editor_text']}"
+    )
+    response=llm.invoke(prompt)
+    return {"script_text":response.content.strip()}
+
+def translator_node(state:pipeline_state)->dict:
+    """Stage 3: Translates the script into natural flowing Hinglish."""
+    prompt=(
+        """You are an expert content localizer for the indian market. Take the following script and convert it into natural, flowing
+        Hinglish. Dont simply translate it sentence by sentence or repeat information. Alternating comfortably between Hindi and English phrases just like 
+        an intellectual tech educator would speak naturally on a live stream. Keep the energy high.
+        Return only the Hinglish text."""
+        f"Script Text: \n {state['script_text']}"
+    )
+    response=llm.invoke(prompt)
+    return {"final_output":response.content.strip()}
