@@ -14,6 +14,8 @@ from dotenv import load_dotenv
 load_dotenv() 
 llm=ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite",temperature=0.7)
 
+# Creating Nodes
+
 def editor_node(state:pipeline_state)->dict:
     """Stage 1: Clean Up Grammar, remove typos and refines the tone."""
     prompt=(
@@ -46,3 +48,27 @@ def translator_node(state:pipeline_state)->dict:
     )
     response=llm.invoke(prompt)
     return {"final_output":response.content.strip()}
+
+# State and Nodes are created, now its time to connect these nodes and create a complete graph and for this we need edges
+# Edges
+
+from langgraph.graph import StateGraph, START,END
+#Creating Graph
+graph=StateGraph(pipeline_state)
+
+#Adding Nodes
+
+graph.add_node("editor",editor_node)
+graph.add_node("script_writer",scriptwriter_node)
+graph.add_node("translator",translator_node)
+
+# Adding Edges Sequential Workflow - one after the other
+graph.add_edge(START,"editor")
+graph.add_edge("editor","script_writer")
+graph.add_edge("script_writer","translator")
+graph.add_edge("translator",END)
+
+# Compile Graph
+app=graph.compile()
+
+
