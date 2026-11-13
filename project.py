@@ -25,7 +25,7 @@ def editor_node(state:pipeline_state)->dict:
         f"Text: \n {state['raw_input']}"
     )
     response=llm.invoke(prompt)
-    return {'edited_text':response.content.strip()}
+    return {'editor_text':response.content}
 
 def scriptwriter_node(state:pipeline_state)->dict:
     """Stage 2: Format the clean text into an engaging video script style."""
@@ -35,7 +35,7 @@ def scriptwriter_node(state:pipeline_state)->dict:
         f"Edited Text: \n {state['editor_text']}"
     )
     response=llm.invoke(prompt)
-    return {"script_text":response.content.strip()}
+    return {"script_text":response.content}
 
 def translator_node(state:pipeline_state)->dict:
     """Stage 3: Translates the script into natural flowing Hinglish."""
@@ -43,11 +43,11 @@ def translator_node(state:pipeline_state)->dict:
         """You are an expert content localizer for the indian market. Take the following script and convert it into natural, flowing
         Hinglish. Dont simply translate it sentence by sentence or repeat information. Alternating comfortably between Hindi and English phrases just like 
         an intellectual tech educator would speak naturally on a live stream. Keep the energy high.
-        Return only the Hinglish text."""
+        Return only the Hinglish text.\n\n"""
         f"Script Text: \n {state['script_text']}"
     )
     response=llm.invoke(prompt)
-    return {"final_output":response.content.strip()}
+    return {"final_output":response.content}
 
 # State and Nodes are created, now its time to connect these nodes and create a complete graph and for this we need edges
 # Edges
@@ -70,5 +70,11 @@ graph.add_edge("translator",END)
 
 # Compile Graph
 app=graph.compile()
+
+result=app.invoke({
+    "raw_input":"umm so hey guys today we are talking about ai like chatgpt and stuff and how it saves time on coding or writing emails, also don't forget to hit subscribe or whatever, let's just jump right into it."
+})
+print("The result is: ")
+print(result['final_output'])
 
 
