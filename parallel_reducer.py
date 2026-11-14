@@ -18,6 +18,27 @@ class AnalyzerState(TypedDict):
     safety_score:Annotated[dict[str,int],merge_score_dicts]
 
 # Create Node
+
+#Helper Function to extract score safely
+import re
+
+def extract_score(response) -> int:
+    content = response.content
+
+    # If content is a list of blocks, join the text parts
+    if isinstance(content, list):
+        text = "".join(
+            block.get("text", "") if isinstance(block, dict) else str(block)
+            for block in content
+        )
+    else:
+        text = str(content)
+
+    # Pull the first number out of the text
+    match = re.search(r"\d+", text)
+    return min(int(match.group()), 100) if match else 0
+
+
 def toxicity_node(state:AnalyzerState)->dict:
     print("Toxicity Node Working.......")
     prompt=(
@@ -26,11 +47,7 @@ def toxicity_node(state:AnalyzerState)->dict:
         f"Text:\n {state['raw_text']}"
     )
     response=llm.invoke(prompt)
-    try:
-        score=int(response.content)
-    except ValueError:
-        score=0
-
+    score=extract_score(response)
     return {"safety_score":{"toxicity_score":score}}
 
 def copyright_node(state:AnalyzerState)->dict:
@@ -42,11 +59,7 @@ def copyright_node(state:AnalyzerState)->dict:
         f"Text: \n {state['raw_text']}"
     )
     response=llm.invoke(prompt)
-    try:
-        score=int(response.content)
-    except ValueError:
-        score=0
-
+    score=extract_score(response)
     return {"safety_score":{"copyright_risk":score}}
 
 def culture_node(state:AnalyzerState)->dict:
@@ -58,9 +71,33 @@ def culture_node(state:AnalyzerState)->dict:
         f"Text: \n {state['raw_text']}"
     )
     response=llm.invoke(prompt)
-    try:
-        score=int(response.content)
-    except ValueError:
-        score=0
-
+    score=extract_score(response)
     return {"safety_score":{"cultural_insensitivity":score}}
+
+builder=StateGraph(AnalyzerState)
+builder.add_node("toxicity_node",toxicity_node)
+builder.add_node("copyright_node",copyright_node)
+builder.add_node("culture_node",culture_node)
+
+builder.add_edge(START,"toxicity_node")
+builder.add_edge(START,"copyright_node")
+builder.add_edge(START,"culture_node")
+
+builder.add_edge("toxicity_node",END)
+builder.add_edge("copyright_node",END)
+builder.add_edge("culture_node",END)
+
+app=builder.compile()
+
+sample_script = """
+Yo everyone, welcome to my channel! Today I'm uploading the full album of a famous singer, every song with the original lyrics, and I'm also streaming the whole Netflix series I screen-recorded without permission.
+If you're still paying for subscriptions you're a complete fool, and those artists are pathetic clowns.
+Also, people from that religion are dirty and their rituals are disgusting. Enjoy the show!
+"""
+
+initial_state={
+    "raw_text":sample_script,
+    "safety_score":{}
+}
+final_state=app.invoke(initial_state)
+print(final_state["safety_score"])
