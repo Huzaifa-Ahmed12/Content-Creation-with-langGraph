@@ -15,7 +15,7 @@ def merge_score_dicts(existing:dict,new_updated:dict)->dict:
         return {**existing,**new_updated}
 class AnalyzerState(TypedDict):
     raw_text:str
-    safety_score:Annotated[dict[str,int],merge_score_dicts]
+    safety_score:Annotated[dict[str,int],merge_score_dicts] # Reducer
 
 # Create Node
 
