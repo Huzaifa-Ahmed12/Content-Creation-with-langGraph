@@ -115,3 +115,21 @@ def classifier_node(state:State)->dict:
         category="general"
 
     return {"query_type":category}
+
+def academic_node(state:State)->dict:
+    """Retrieves relevant chunks from the academic handbook."""
+    query=state['messages'][-1].content
+    docs=academics_retriever.invoke(query)
+    context="\n\n".join(doc.page_content for doc in docs)
+    return {"retrieved_context":context}
+
+def fee_node(state:State)->dict:
+    """Retrieves relevant chunks from the fee structure handbook."""
+    query=state['messages'][-1].content
+    docs=fee_retriever.invoke(query)
+    context="\n\n".join(doc.page_content for doc in docs)
+    return {"retrieved_context":context}
+
+def general_node(state:State)->dict:
+    """Answer directly using LLMs own knowledge, no retrieval needed."""
+    return{"retrieved_context":"No retrievel needed"}
