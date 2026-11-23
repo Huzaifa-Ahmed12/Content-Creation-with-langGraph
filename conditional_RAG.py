@@ -29,7 +29,7 @@ def build_retriever(pdf_path:str):
 academics_retriever=build_retriever("academics_handbook.pdf")
 fee_retriever=build_retriever("fee_structure.pdf")
 
-llm=ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite",temperature=0.4)
+llm=ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite",temperature=0.3)
 
 # State
 class State(TypedDict):
