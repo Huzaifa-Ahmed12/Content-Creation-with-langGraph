@@ -132,4 +132,4 @@ def fee_node(state:State)->dict:
 
 def general_node(state:State)->dict:
     """Answer directly using LLMs own knowledge, no retrieval needed."""
-    return{"retrieved_context":"No retrievel needed"}
+    return{"retrieved_context":"No retrievel needed now"}
