@@ -132,4 +132,54 @@ def fee_node(state:State)->dict:
 
 def general_node(state:State)->dict:
     """Answer directly using LLMs own knowledge, no retrieval needed."""
-    return{"retrieved_context":"No retrievel needed now"}
+    return{"retrieved_context":"No_retrieval_needed"}
+
+
+def response_node(state:State)->dict:
+    """Generate the final answer personalized ussing the student program."""
+    query=state["messages"][-1].content
+    context=state["retrieved_context"]
+    programme=state.get("programme","Unknown") #state.get is used because if programme is missing in the state or user not enter yet, it will print Unknown
+
+    if context=="No_retrieval_needed":
+        prompt=(
+            """You are a friendly college assistant talking to a {programme} student.
+            Answer the student's quesiton using your own general knowledge.
+            The question is {query}"""
+        )
+    else:
+         prompt = f"""You are the official student assistant of Bahria University Islamabad.
+            You are talking to a student of the {programme} programme.
+
+            === YOUR TASK ===
+         Answer the student's question using ONLY the information in the CONTEXT below.
+        The context is taken from official university documents.
+
+        === RULES ===
+        1. Use ONLY the context. Do NOT use outside knowledge or make up any numbers,
+        fees, dates, course names or rules.
+        2. If the answer depends on the programme (fee, courses, credit hours, road map),
+        give the answer for {programme}, unless the student clearly asks about
+        another programme.
+        3. If the context has the answer for other programmes but not for {programme},
+        say that clearly instead of guessing.
+        4. Copy all numbers exactly as written in the context (fees in Rs., percentages,
+        credit hours, CGPA). Do not round or change them.
+        5. If the answer is NOT in the context, reply:
+        "I'm sorry, I don't have this information. Please contact the Bahria University
+        Islamabad office or visit www.bahria.edu.pk."
+        6. Keep the answer short, clear and friendly, in simple English.
+        Use bullet points or a small table when listing multiple items
+        (for example fee breakdowns or course lists).
+        7. Do not mention words like "context" or "document" in your answer.
+        Answer naturally, as a university staff member would.
+
+        === CONTEXT ===
+        {context}
+
+        === STUDENT'S QUESTION ===
+        {query}
+        === ANSWER ==="""
+    response=llm.invoke(prompt)
+    return {"messages":response.content.strip()}
+
