@@ -106,7 +106,7 @@ def classifier_node(state:State)->dict:
     general
     """
     response=llm.invoke(prompt)
-    category=response.content.strip().lower()
+    category=response.content.lower()
     if "academic" in category:
         category="academic"
     elif "fee" in category:
@@ -181,7 +181,7 @@ def response_node(state:State)->dict:
         {query}
         === ANSWER ==="""
     response=llm.invoke(prompt)
-    return {"messages":response.content.strip()}
+    return {"messages":response.content}
 
 
 def router_query(state:State)->Literal["academic_rag","fee_rag","general"]:  #this makes langGraph knows all possible paths
@@ -211,3 +211,65 @@ graph.add_edge("response",END)
 
 app=graph.compile()
 
+from langchain_core.messages import HumanMessage
+
+PROGRAMMES = [
+    "BBA",
+    "BS Accounting & Finance",
+    "BS Computer Science",
+    "BS Software Engineering",
+    "BS Artificial Intelligence",
+    "BS Psychology",
+    "LLB",
+]
+
+
+def choose_programme() -> str:
+    print("\n===== Bahria University Islamabad Chatbot =====")
+    print("Please select your programme:\n")
+    for i, p in enumerate(PROGRAMMES, start=1):
+        print(f"  {i}. {p}")
+
+    while True:
+        choice = input("\nEnter number: ")
+        if choice.isdigit() and 1 <= int(choice) <= len(PROGRAMMES):
+            programme = PROGRAMMES[int(choice) - 1]
+            print(f"\nYou selected: {programme}")
+            print("Type your question (type 'change' to switch programme, 'exit' to quit)\n")
+            return programme
+        print("Invalid choice, please try again.")
+
+
+def run_chat():
+    programme = choose_programme()
+    history = []   # keeps the whole conversation
+
+    while True:
+        user_input = input("You: ")
+
+        if not user_input:
+            continue
+        if user_input.lower() in ["exit", "quit", "bye"]:
+            print("Bot: Goodbye! Best of luck with your studies.")
+            break
+        if user_input.lower() == "change":
+            programme = choose_programme()
+            history = []   # fresh conversation for new programme
+            continue
+
+        history.append(HumanMessage(content=user_input))
+
+        result = app.invoke({
+            "messages": history,
+            "programme": programme,
+        })
+
+        answer = result["messages"][-1].content
+        print(f"\n[Route: {result['query_type']}]")   # shows which path was taken
+        print(f"Bot: {answer}\n")
+
+        history = result["messages"]   # save updated history (question + answer)
+
+
+if __name__ == "__main__":
+    run_chat()
