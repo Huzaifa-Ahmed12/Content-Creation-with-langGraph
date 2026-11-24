@@ -8,4 +8,4 @@ langchain-text-splitters
 langchain-huggingface
 sentence-transformers
 faiss-cpu #Stores in RAM not separetely.
-pypdf
+pdfplumber

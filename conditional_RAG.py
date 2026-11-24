@@ -4,32 +4,97 @@ from langgraph.graph.message import add_messages
 from langgraph.graph import StateGraph,START,END
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.document_loaders import PyPDFLoader
+import pdfplumber
+from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
+from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv
 load_dotenv()
 
 embeddings=HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+def clean(text) -> str:
+    """Remove line breaks and extra spaces inside a table cell."""
+    return " ".join((text or "").split())
 
-def build_retriever(pdf_path:str):
-    loader=PyPDFLoader(pdf_path)
-    document=loader.load()
-    splitter=RecursiveCharacterTextSplitter(
-        chunk_size=700,
-        chunk_overlap=80
+
+def extract_table_docs(pdf_path: str) -> list:
+    """Read every table in the PDF and turn each row into a labelled sentence."""
+    table_docs = []
+    last_header = None   # remember header in case a table continues on next page
+
+    with pdfplumber.open(pdf_path) as pdf:
+        for page_no, page in enumerate(pdf.pages, start=1):
+            tables = page.extract_tables()
+
+            for table in tables:
+                if not table or len(table) < 2:
+                    continue
+
+                first_row = [clean(c) for c in table[0]]
+
+                # Is the first row a header (text) or a data row (continuing table)?
+                looks_like_header = not any("Rs." in c for c in first_row)
+
+                if looks_like_header:
+                    header = first_row
+                    rows = table[1:]
+                    last_header = header
+                elif last_header and len(last_header) == len(first_row):
+                    header = last_header          # table continued from previous page
+                    rows = table
+                else:
+                    continue
+
+                for row in rows:
+                    cells = [clean(c) for c in row]
+                    sentence = ". ".join(
+                        f"{h}: {c}" for h, c in zip(header, cells) if h and c
+                    )
+                    if sentence:
+                        table_docs.append(Document(
+                            page_content=sentence + ".",
+                            metadata={"source": pdf_path, "page": page_no, "type": "table"}
+                        ))
+
+    return table_docs
+def build_retriever(pdf_path: str):
+    # 1. Normal text (paragraphs)
+    loader = PyPDFLoader(pdf_path)
+    document = loader.load()
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=150
     )
-    chunks=splitter.split_documents(document)
-    vector_store=FAISS.from_documents(chunks,embeddings)
-    retriever=vector_store.as_retriever(
-        search_kwargs={"k":4}
+    text_chunks = splitter.split_documents(document)
+
+    # 2. Tables (each row as one labelled sentence)
+    table_docs = extract_table_docs(pdf_path)
+    print(f"{pdf_path}: {len(text_chunks)} text chunks + {len(table_docs)} table rows")
+
+    # 3. Put both into the same vector store
+    vector_store = FAISS.from_documents(text_chunks + table_docs, embeddings)
+    retriever = vector_store.as_retriever(
+        search_kwargs={"k": 6}
     )
     return retriever
 
 academics_retriever=build_retriever("academics_handbook.pdf")
 fee_retriever=build_retriever("fee_structure.pdf")
 
-llm=ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite",temperature=0.3)
+llm=ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite")
+
+# FIX: Gemini 3.x can return content as a list of parts, so read the text safely
+def get_text(message)->str:
+    content=message.content
+    if isinstance(content,str):
+        return content
+    return "".join(
+        part.get("text","") if isinstance(part,dict) else str(part)
+        for part in content
+    )
+
 
 # State
 class State(TypedDict):
@@ -41,7 +106,7 @@ class State(TypedDict):
 # Nodes
 def classifier_node(state:State)->dict:
     """Look at user latest message and decide which path to take."""
-    last_message=state['messages'][-1].content
+    last_message=get_text(state['messages'][-1])
     prompt=f"""
     You are a query classifier for the Bahria University Islamabad student chatbot.
     Your ONLY job is to decide which knowledge source should answer the student's latest message.
@@ -106,7 +171,7 @@ def classifier_node(state:State)->dict:
     general
     """
     response=llm.invoke(prompt)
-    category=response.content.lower()
+    category=get_text(response).strip().lower()   # FIX: was response.content (list -> crash)
     if "academic" in category:
         category="academic"
     elif "fee" in category:
@@ -118,14 +183,14 @@ def classifier_node(state:State)->dict:
 
 def academic_node(state:State)->dict:
     """Retrieves relevant chunks from the academic handbook."""
-    query=state['messages'][-1].content
+    query=get_text(state['messages'][-1])
     docs=academics_retriever.invoke(query)
     context="\n\n".join(doc.page_content for doc in docs)
     return {"retrieved_context":context}
 
 def fee_node(state:State)->dict:
     """Retrieves relevant chunks from the fee structure handbook."""
-    query=state['messages'][-1].content
+    query=get_text(state['messages'][-1])
     docs=fee_retriever.invoke(query)
     context="\n\n".join(doc.page_content for doc in docs)
     return {"retrieved_context":context}
@@ -136,23 +201,23 @@ def general_node(state:State)->dict:
 
 
 def response_node(state:State)->dict:
-    """Generate the final answer personalized ussing the student program."""
-    query=state["messages"][-1].content
-    context=state["retrieved_context"]
+    """Generate the final answer personalized using the student program."""
+    query=get_text(state["messages"][-1])
+    context=state.get("retrieved_context","No_retrieval_needed")   # FIX: safe access
     programme=state.get("programme","Unknown") #state.get is used because if programme is missing in the state or user not enter yet, it will print Unknown
 
     if context=="No_retrieval_needed":
         prompt=(
-            """You are a friendly college assistant talking to a {programme} student.
-            Answer the student's quesiton using your own general knowledge.
+            f"""You are a friendly college assistant talking to a {programme} student.
+            Answer the student's question using your own general knowledge.
             The question is {query}"""
-        )
+        )   # FIX: added f so {programme} and {query} are filled in
     else:
-         prompt = f"""You are the official student assistant of Bahria University Islamabad.
-            You are talking to a student of the {programme} programme.
+        prompt = f"""You are the official student assistant of Bahria University Islamabad.
+        You are talking to a student of the {programme} programme.
 
-            === YOUR TASK ===
-         Answer the student's question using ONLY the information in the CONTEXT below.
+        === YOUR TASK ===
+        Answer the student's question using ONLY the information in the CONTEXT below.
         The context is taken from official university documents.
 
         === RULES ===
@@ -181,7 +246,7 @@ def response_node(state:State)->dict:
         {query}
         === ANSWER ==="""
     response=llm.invoke(prompt)
-    return {"messages":response.content}
+    return {"messages":[response]}   # FIX: return the AI message object, not a string
 
 
 def router_query(state:State)->Literal["academic_rag","fee_rag","general"]:  #this makes langGraph knows all possible paths
@@ -211,7 +276,6 @@ graph.add_edge("response",END)
 
 app=graph.compile()
 
-from langchain_core.messages import HumanMessage
 
 PROGRAMMES = [
     "BBA",
@@ -231,7 +295,7 @@ def choose_programme() -> str:
         print(f"  {i}. {p}")
 
     while True:
-        choice = input("\nEnter number: ")
+        choice = input("\nEnter number: ").strip()
         if choice.isdigit() and 1 <= int(choice) <= len(PROGRAMMES):
             programme = PROGRAMMES[int(choice) - 1]
             print(f"\nYou selected: {programme}")
@@ -245,7 +309,7 @@ def run_chat():
     history = []   # keeps the whole conversation
 
     while True:
-        user_input = input("You: ")
+        user_input = input("You: ").strip()
 
         if not user_input:
             continue
@@ -264,7 +328,7 @@ def run_chat():
             "programme": programme,
         })
 
-        answer = result["messages"][-1].content
+        answer = get_text(result["messages"][-1])   # FIX: was .content (list)
         print(f"\n[Route: {result['query_type']}]")   # shows which path was taken
         print(f"Bot: {answer}\n")
 
