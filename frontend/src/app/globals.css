@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+/* ===== The ONLY 3 colours used in the whole app ===== */
+@theme {
+  --color-navy: #0b2e59;   /* primary: header, bot text, buttons */
+  --color-gold: #e0a800;   /* accent: highlights, user bubble, focus */
+  --color-white: #ffffff;  /* background and text on navy */
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-white);
+  color: var(--color-navy);
+}
+
+/* Markdown styling for bot answers (bullets, bold, tables) */
+.markdown p { margin: 0.25rem 0; }
+.markdown ul, .markdown ol { margin: 0.4rem 0; padding-left: 1.25rem; }
+.markdown ul { list-style: disc; }
+.markdown ol { list-style: decimal; }
+.markdown li { margin: 0.15rem 0; }
+.markdown li::marker { color: var(--color-gold); }
+.markdown strong { font-weight: 700; }
+.markdown a {
+  color: var(--color-navy);
+  text-decoration: underline;
+  text-decoration-color: var(--color-gold);
+}
+.markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  font-size: 0.875rem;
+}
+.markdown th {
+  background: var(--color-navy);
+  color: var(--color-white);
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+}
+.markdown td {
+  border-bottom: 1px solid color-mix(in srgb, var(--color-navy) 15%, transparent);
+  padding: 0.4rem 0.6rem;
+}
+
+/* Thin scrollbar */
+.chat-scroll::-webkit-scrollbar { width: 6px; }
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-navy) 25%, transparent);
+  border-radius: 9999px;
+}
