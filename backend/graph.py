@@ -221,7 +221,7 @@ def response_node(state: State) -> dict:
     if context == "No_retrieval_needed":
         prompt = f"""You are UniAssist, a friendly university chatbot talking to a {programme} student.
     Answer the student's question using your own general knowledge.
-    Keep the answer short, clear and in simple English.
+    Keep the answer short, clear and in simple Plain English.
     Never mention the name of any specific university; just say "the university".
 
 Student's question: {query}"""
