@@ -8,8 +8,8 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Bahria University Chatbot",
-  description: "Ask about academics and fees at Bahria University Islamabad",
+  title: "UniAssist | University Chatbot",
+  description: "Ask about academics, courses and fees at your university",
 };
 
 export default function RootLayout({

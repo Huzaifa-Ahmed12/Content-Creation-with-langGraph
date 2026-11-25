@@ -1,11 +1,14 @@
 langgraph
 langchain
-langchain-google-genai
-python-dotenv
 langchain-core
 langchain-community
 langchain-text-splitters
+langchain-google-genai
 langchain-huggingface
 sentence-transformers
-faiss-cpu #Stores in RAM not separetely.
+faiss-cpu
+pypdf
 pdfplumber
+python-dotenv
+fastapi
+uvicorn[standard]

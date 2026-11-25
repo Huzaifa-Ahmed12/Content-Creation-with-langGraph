@@ -10,9 +10,7 @@ export default function ProgrammeSelect({ onSelect }: ProgrammeSelectProps) {
       <span className="rounded-full bg-gold px-4 py-1 text-xs font-semibold uppercase tracking-wide text-navy">
         Step 1 of 2
       </span>
-      <h2 className="mt-4 text-center text-2xl font-bold sm:text-3xl">
-        Select your programme
-      </h2>
+      <h2 className="mt-4 text-center text-2xl font-bold sm:text-3xl">Select your programme</h2>
       <p className="mt-2 max-w-md text-center text-sm text-navy/70">
         The assistant will tailor fee and academic answers to the programme you choose.
       </p>

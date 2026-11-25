@@ -1,35 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import Header from "@/components/Header";
-import ProgrammeSelect from "@/components/ProgrammeSelect";
-import ChatWindow from "@/components/ChatWindow";
+import dynamic from "next/dynamic";
+
+// ChatApp reads saved chats from the browser (localStorage),
+// so it is loaded only in the browser, not on the server.
+const ChatApp = dynamic(() => import("@/components/ChatApp"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-dvh items-center justify-center">
+      <div className="flex h-12 w-12 animate-pulse items-center justify-center rounded-full bg-navy text-lg font-bold text-gold">
+        U
+      </div>
+    </div>
+  ),
+});
 
 export default function Home() {
-  const [programme, setProgramme] = useState<string | null>(null);
-  const [threadId, setThreadId] = useState("");
-
-  // A new thread_id = a new conversation (used by the backend later)
-  const startChat = (p: string) => {
-    setProgramme(p);
-    setThreadId(crypto.randomUUID());
-  };
-
-  return (
-    <main className="flex h-dvh flex-col">
-      <Header
-        programme={programme}
-        onChangeProgramme={() => setProgramme(null)}
-        onNewChat={() => programme && startChat(programme)}
-      />
-
-      {programme ? (
-        <ChatWindow key={threadId} programme={programme} threadId={threadId} />
-      ) : (
-        <div className="flex-1 overflow-y-auto">
-          <ProgrammeSelect onSelect={startChat} />
-        </div>
-      )}
-    </main>
-  );
+  return <ChatApp />;
 }
